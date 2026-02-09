@@ -1,0 +1,60 @@
+name: copytrade-play
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"  # 15分おき。重いなら */30 や 0 * * * * に
+  workflow_dispatch: {}
+
+concurrency:
+  group: copytrade-play
+  cancel-in-progress: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # state.json をコミット更新するため
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Run bot
+        env:
+          # 1) コピー対象
+          LEADER_ID: ${{ secrets.LEADER_ID }}   # 例: 上位トレーダーのアドレス/ID（あなたが決める）
+          POSITION_RATIO: ${{ secrets.POSITION_RATIO }} # 例: 0.2 （残高の20%だけ合わせる）
+
+          # 2) 実行モード（最初は必ずDRY_RUN=true推奨）
+          DRY_RUN: ${{ secrets.DRY_RUN }}       # "true" or "false"
+          MIN_USD: ${{ secrets.MIN_USD }}       # 例: "10"
+
+          # 3) データ取得（Nansen等）
+          NANSEN_API_KEY: ${{ secrets.NANSEN_API_KEY }} # 無いなら空でOK（あなたの実装次第）
+          NANSEN_BASE_URL: ${{ secrets.NANSEN_BASE_URL }} # 無いなら空でOK
+
+          # 4) 発注先（Hyperliquid等）
+          EXCHANGE: ${{ secrets.EXCHANGE }}     # "hyperliquid" 固定でOK
+          HL_API_BASE: ${{ secrets.HL_API_BASE }} # 例: https://api.hyperliquid.xyz
+          HL_WALLET_ADDRESS: ${{ secrets.HL_WALLET_ADDRESS }}
+          HL_PRIVATE_KEY: ${{ secrets.HL_PRIVATE_KEY }}
+
+        run: python copy_trade.py
+
+      - name: Commit state (if changed)
+        run: |
+          if git diff --quiet; then
+            echo "No changes"
+          else
+            git config user.name "copytrade-bot"
+            git config user.email "actions@users.noreply.github.com"
+            git add state.json
+            git commit -m "Update state.json"
+            git push
+          fi

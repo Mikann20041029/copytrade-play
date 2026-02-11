@@ -2,7 +2,7 @@ name: copytrade-play
 
 on:
   schedule:
-    - cron: "*/15 * * * *"  # 15分おき。重いなら */30 や 0 * * * * に
+    - #cron: "*/15 * * * *"  # 15分おき。重いなら */30 や 0 * * * * に
   workflow_dispatch: {}
 
 concurrency:
